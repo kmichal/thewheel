@@ -1,7 +1,14 @@
 import PositionRow from './PositionRow';
+import type { Position } from '../../types/position';
 import './PositionsTable.css';
 
-const COLUMNS = [
+interface Column {
+  key: keyof Position | 'symbol';
+  label: string;
+  align?: 'right';
+}
+
+const COLUMNS: Column[] = [
   { key: 'symbol', label: 'Symbol' },
   { key: 'secType', label: 'Asset Class' },
   { key: 'position', label: 'Position', align: 'right' },
@@ -11,11 +18,15 @@ const COLUMNS = [
   { key: 'unrealizedPNL', label: 'Unrealized PNL', align: 'right' },
 ];
 
-function rowKey(position, index) {
+function rowKey(position: Position, index: number): string | number {
   return position.conId ?? `${position.symbol}-${position.secType}-${index}`;
 }
 
-export default function PositionsTable({ positions }) {
+interface PositionsTableProps {
+  positions: Position[];
+}
+
+export default function PositionsTable({ positions }: PositionsTableProps) {
   return (
     <div className="table-wrapper">
       <table className="positions-table">

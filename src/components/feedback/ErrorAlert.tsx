@@ -1,6 +1,10 @@
 import './Feedback.css';
 
-export default function ErrorAlert({ message }) {
+interface ErrorAlertProps {
+  message: string | null;
+}
+
+export default function ErrorAlert({ message }: ErrorAlertProps) {
   if (!message) return null;
 
   return (

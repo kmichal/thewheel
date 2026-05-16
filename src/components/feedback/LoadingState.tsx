@@ -1,6 +1,10 @@
 import './Feedback.css';
 
-export default function LoadingState({ message = 'Working...' }) {
+interface LoadingStateProps {
+  message?: string;
+}
+
+export default function LoadingState({ message = 'Working...' }: LoadingStateProps) {
   return (
     <div className="loading">
       <div className="spinner" />

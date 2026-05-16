@@ -1,7 +1,12 @@
 import RefreshButton from './RefreshButton';
 import './ControlsPanel.css';
 
-export default function ControlsPanel({ onRefresh, loading }) {
+interface ControlsPanelProps {
+  onRefresh: () => void;
+  loading: boolean;
+}
+
+export default function ControlsPanel({ onRefresh, loading }: ControlsPanelProps) {
   return (
     <div className="controls-panel">
       <div className="action-area">

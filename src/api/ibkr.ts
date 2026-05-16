@@ -1,3 +1,5 @@
+import type { AccountSummaryData, Position } from '../types/position';
+
 /**
  * Browser client for @stoqey/ibkr patterns (see https://github.com/stoqey/ibkr).
  * Connects via the Express backend; IBKR_HOST / IBKR_PORT live in server/.env.
@@ -5,9 +7,33 @@
 
 const API_BASE = import.meta.env.VITE_API_BASE || '/api';
 
-async function apiFetch(path) {
+interface ApiErrorBody {
+  error?: string;
+}
+
+interface RawPositionRow {
+  symbol?: string;
+  ticker?: string;
+  secType?: string;
+  assetClass?: string;
+  position?: number;
+  averageCost?: number;
+  avgPrice?: number;
+  marketPrice?: number;
+  mktPrice?: number;
+  marketValue?: number;
+  mktValue?: number;
+  unrealizedPNL?: number;
+  unrealizedPnl?: number;
+  realizedPNL?: number;
+  realizedPnl?: number;
+  accountName?: string;
+  conId?: number;
+}
+
+async function apiFetch<T>(path: string): Promise<T> {
   const url = `${API_BASE}${path}${path.includes('?') ? '&' : '?'}_=${Date.now()}`;
-  let res;
+  let res: Response;
   try {
     res = await fetch(url, {
       cache: 'no-store',
@@ -20,55 +46,55 @@ async function apiFetch(path) {
     );
   }
   if (!res.ok) {
-    const errorData = await res.json().catch(() => ({}));
+    const errorData = (await res.json().catch(() => ({}))) as ApiErrorBody;
     throw new Error(errorData.error || `Request failed: ${res.status}`);
   }
-  return res.json();
+  return res.json() as Promise<T>;
 }
 
-/** @returns {boolean} whether the backend is connected to TWS/Gateway */
-export default async function ibkr() {
-  const { connected } = await apiFetch('/status');
+/** Whether the backend is connected to TWS/Gateway */
+export default async function ibkr(): Promise<boolean> {
+  const { connected } = await apiFetch<{ connected: boolean }>('/status');
   return connected;
 }
 
 export class Portfolios {
-  static _instance;
+  private static _instance: Portfolios | undefined;
 
-  positions = [];
+  positions: Position[] = [];
 
-  static get Instance() {
-    return this._instance || (this._instance = new Portfolios());
+  static get Instance(): Portfolios {
+    return (this._instance ??= new Portfolios());
   }
 
   /** Refresh positions from the server (mirrors Portfolios.init / getPortfolios). */
-  init = async () => {
-    const raw = await apiFetch('/positions');
+  init = async (): Promise<Position[]> => {
+    const raw = await apiFetch<RawPositionRow[]>('/positions');
     this.positions = raw.map(normalizePosition);
     return this.positions;
   };
 
-  getPortfolios = () => this.init();
+  getPortfolios = (): Promise<Position[]> => this.init();
 }
 
 export class AccountSummary {
-  static _instance;
+  private static _instance: AccountSummary | undefined;
 
-  accountSummary = null;
+  accountSummary: AccountSummaryData | null = null;
 
-  static get Instance() {
-    return this._instance || (this._instance = new AccountSummary());
+  static get Instance(): AccountSummary {
+    return (this._instance ??= new AccountSummary());
   }
 
-  init = async () => {
-    this.accountSummary = await apiFetch('/account-summary');
+  init = async (): Promise<AccountSummaryData> => {
+    this.accountSummary = await apiFetch<AccountSummaryData>('/account-summary');
     return this.accountSummary;
   };
 
-  getAccountSummary = () => this.init();
+  getAccountSummary = (): Promise<AccountSummaryData> => this.init();
 }
 
-function normalizePosition(row) {
+function normalizePosition(row: RawPositionRow): Position {
   return {
     symbol: row.symbol ?? row.ticker,
     secType: row.secType ?? row.assetClass,
@@ -84,7 +110,7 @@ function normalizePosition(row) {
 }
 
 /** @deprecated Use `Portfolios.Instance.getPortfolios()` instead */
-export async function fetchIBKRPositions() {
+export async function fetchIBKRPositions(): Promise<Position[]> {
   const started = await ibkr();
   if (!started) {
     throw new Error(

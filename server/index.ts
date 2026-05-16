@@ -1,11 +1,12 @@
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const ibkr = require('@stoqey/ibkr').default;
-const { AccountSummary, AppEvents, APPEVENTS, Portfolios } = require('@stoqey/ibkr');
+import 'dotenv/config';
+import express from 'express';
+import cors from 'cors';
+import ibkr from '@stoqey/ibkr';
+import { AccountSummary, AppEvents, APPEVENTS, Portfolios } from '@stoqey/ibkr';
+import type { EventEmitter } from 'events';
 
 const app = express();
-const port = process.env.PORT || 3001;
+const port = Number(process.env.PORT) || 3001;
 
 app.use(cors());
 app.use(express.json());
@@ -21,7 +22,33 @@ let isConnected = false;
 
 const FRESH_DATA_TIMEOUT_MS = 8000;
 
-function mapPosition(pos) {
+interface MappedPosition {
+  symbol?: string;
+  secType?: string;
+  position?: number;
+  averageCost?: number;
+  marketPrice?: number;
+  marketValue?: number;
+  unrealizedPNL?: number;
+  realizedPNL?: number;
+  accountName?: string;
+  conId?: number;
+}
+
+interface CachedPositionEntry {
+  conId?: number;
+  symbol?: string;
+  secType?: string;
+  position?: number;
+  marketPrice?: number;
+  marketValue?: number;
+  averageCost?: number;
+  unrealizedPNL?: number;
+  realizedPNL?: number;
+  accountName?: string;
+}
+
+function mapPosition(pos: CachedPositionEntry): MappedPosition {
   return {
     symbol: pos.symbol,
     secType: pos.secType,
@@ -37,17 +64,20 @@ function mapPosition(pos) {
 }
 
 /** Persistent cache — IB only sends updatePortfolio on first subscribe or when positions change */
-const positionsCache = new Map();
-let positionsFetchInFlight = null;
+const positionsCache = new Map<string, CachedPositionEntry>();
+let positionsFetchInFlight: Promise<MappedPosition[]> | null = null;
 let positionListenersAttached = false;
 
-function positionKey(contract, accountName) {
+function positionKey(
+  contract: { conId?: number; symbol?: string; secType?: string },
+  accountName?: string
+): string {
   const id = contract?.conId ?? contract?.symbol ?? 'unknown';
   const secType = contract?.secType ?? '';
   return `${id}:${secType}:${accountName ?? ''}`;
 }
 
-function upsertCachedPosition(entry) {
+function upsertCachedPosition(entry: CachedPositionEntry): void {
   const key = positionKey(entry, entry.accountName);
   const qty = Number(entry.position);
   if (!qty) {
@@ -57,18 +87,27 @@ function upsertCachedPosition(entry) {
   positionsCache.set(key, entry);
 }
 
-function getCachedPositions() {
+function getCachedPositions(): MappedPosition[] {
   return Array.from(positionsCache.values()).map(mapPosition);
 }
 
 /** Accumulate every updatePortfolio into positionsCache (deduped by conId) */
-function attachPositionListeners(ib) {
-  if (positionListenersAttached || !ib) return;
+function attachPositionListeners(ib: EventEmitter): void {
+  if (positionListenersAttached) return;
   positionListenersAttached = true;
 
   ib.on(
     'updatePortfolio',
-    (contract, position, marketPrice, marketValue, averageCost, unrealizedPNL, realizedPNL, accountName) => {
+    (
+      contract: CachedPositionEntry,
+      position: number,
+      marketPrice: number,
+      marketValue: number,
+      averageCost: number,
+      unrealizedPNL: number,
+      realizedPNL: number,
+      accountName: string
+    ) => {
       upsertCachedPosition({
         ...contract,
         position,
@@ -82,8 +121,11 @@ function attachPositionListeners(ib) {
     }
   );
 
-  AppEvents.Instance.on(APPEVENTS.PORTFOLIOS, (data) => {
-    const list = data?.portfolios ?? (Array.isArray(data) ? data : []);
+  AppEvents.Instance.on(APPEVENTS.PORTFOLIOS, (data: unknown) => {
+    const payload = data as { portfolios?: CachedPositionEntry[] } | CachedPositionEntry[];
+    const list = Array.isArray(payload)
+      ? payload
+      : (payload?.portfolios ?? []);
     for (const pos of list) {
       upsertCachedPosition(pos);
     }
@@ -95,7 +137,7 @@ function attachPositionListeners(ib) {
  * IB does not re-send all updatePortfolio events on every reqAccountUpdates —
  * only accountDownloadEnd (often immediately), which left a per-request Map empty.
  */
-function fetchFreshPositions() {
+function fetchFreshPositions(): Promise<MappedPosition[]> {
   if (positionsFetchInFlight) {
     return positionsFetchInFlight;
   }
@@ -103,13 +145,13 @@ function fetchFreshPositions() {
   const portfoliosInstance = Portfolios.Instance;
   const ib = portfoliosInstance.ib;
 
-  positionsFetchInFlight = new Promise((resolve) => {
+  positionsFetchInFlight = new Promise<MappedPosition[]>((resolve) => {
     if (!ib) {
       resolve([]);
       return;
     }
 
-    let settleTimer = null;
+    let settleTimer: ReturnType<typeof setTimeout> | null = null;
     let finished = false;
 
     const finish = () => {
@@ -138,7 +180,6 @@ function fetchFreshPositions() {
     ib.once('accountDownloadEnd', onDownloadEnd);
     portfoliosInstance.reqAccountUpdates();
 
-    // If IB sends no new events, return whatever we already have from init
     if (positionsCache.size > 0) {
       scheduleFinish();
     }
@@ -149,7 +190,7 @@ function fetchFreshPositions() {
   return positionsFetchInFlight;
 }
 
-function fetchFreshAccountSummary() {
+function fetchFreshAccountSummary(): Promise<Record<string, string | number | undefined>> {
   const accountInstance = AccountSummary.Instance;
   const ib = accountInstance.ib;
 
@@ -161,7 +202,7 @@ function fetchFreshAccountSummary() {
     const finish = () => {
       ib.off('accountSummaryEnd', onEnd);
       clearTimeout(timeout);
-      resolve(accountInstance.accountSummary);
+      resolve(accountInstance.accountSummary ?? {});
     };
 
     const onEnd = () => finish();
@@ -173,7 +214,7 @@ function fetchFreshAccountSummary() {
   });
 }
 
-function waitForAccountDownload(ib) {
+function waitForAccountDownload(ib: EventEmitter): Promise<void> {
   return new Promise((resolve) => {
     const done = () => {
       ib.off('accountDownloadEnd', done);
@@ -186,7 +227,7 @@ function waitForAccountDownload(ib) {
 }
 
 /** ibkr() already runs AccountSummary + Portfolios init before CONNECTED — attach listeners then re-subscribe */
-async function seedPositionsCache() {
+async function seedPositionsCache(): Promise<void> {
   const ib = AccountSummary.Instance.ib;
   if (!ib) return;
 
@@ -210,16 +251,22 @@ async function seedPositionsCache() {
     return;
   }
 
+  const ibApi = ib as EventEmitter & {
+    reqAccountUpdates: (subscribe: boolean, accountId: string) => void;
+  };
+
   console.log('Re-subscribing to account updates to load positions...');
-  ib.reqAccountUpdates(false, accountId);
-  ib.reqAccountUpdates(true, accountId);
+  ibApi.reqAccountUpdates(false, String(accountId));
+  ibApi.reqAccountUpdates(true, String(accountId));
   await waitForAccountDownload(ib);
   console.log(`Initial positions cached: ${positionsCache.size}`);
 }
 
-async function startIBKR() {
+async function startIBKR(): Promise<void> {
   try {
-    console.log(`Attempting to connect to IBKR on ${process.env.IBKR_HOST || '127.0.0.1'}:${process.env.IBKR_PORT || 7497}...`);
+    console.log(
+      `Attempting to connect to IBKR on ${process.env.IBKR_HOST || '127.0.0.1'}:${process.env.IBKR_PORT || 7497}...`
+    );
     const started = await ibkr();
 
     if (started) {
@@ -234,13 +281,15 @@ async function startIBKR() {
   }
 }
 
-app.get('/api/status', (req, res) => {
+app.get('/api/status', (_req, res) => {
   res.json({ connected: isConnected });
 });
 
-app.get('/api/positions', async (req, res) => {
+app.get('/api/positions', async (_req, res) => {
   if (!isConnected) {
-    return res.status(503).json({ error: 'IBKR not connected. Please ensure TWS/Gateway is running and API is enabled.' });
+    return res.status(503).json({
+      error: 'IBKR not connected. Please ensure TWS/Gateway is running and API is enabled.',
+    });
   }
   try {
     const positions = await fetchFreshPositions();
@@ -251,9 +300,11 @@ app.get('/api/positions', async (req, res) => {
   }
 });
 
-app.get('/api/account-summary', async (req, res) => {
+app.get('/api/account-summary', async (_req, res) => {
   if (!isConnected) {
-    return res.status(503).json({ error: 'IBKR not connected. Please ensure TWS/Gateway is running and API is enabled.' });
+    return res.status(503).json({
+      error: 'IBKR not connected. Please ensure TWS/Gateway is running and API is enabled.',
+    });
   }
   try {
     const summary = await fetchFreshAccountSummary();
