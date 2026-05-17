@@ -49,6 +49,7 @@ export default function OptionsChain({
       }
     },
     { field: 'strike', headerName: 'Strike', width: 100, type: 'numericColumn' },
+    { field: 'right', headerName: 'Type', width: 80, valueFormatter: (params) => params.value === 'C' ? 'Call' : 'Put' },
     { field: 'bid', headerName: 'Bid', width: 100, type: 'numericColumn' },
     { field: 'ask', headerName: 'Ask', width: 100, type: 'numericColumn' },
     { field: 'delta', headerName: 'Delta', width: 100, type: 'numericColumn' },
