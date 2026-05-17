@@ -21,7 +21,7 @@ declare module '@stoqey/ibkr' {
   interface PortfoliosInstance {
     ib: EventEmitter | null;
     currentPortfolios?: CachedPosition[];
-    reqAccountUpdates(): void;
+    reqAccountUpdates(subscribe?: boolean, accountId?: string): void;
   }
 
   interface AccountSummaryInstance {

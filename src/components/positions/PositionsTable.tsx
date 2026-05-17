@@ -1,26 +1,70 @@
-import PositionRow from './PositionRow';
+import { AgGridProvider, AgGridReact } from 'ag-grid-react';
+import type { ColDef, ValueFormatterParams } from 'ag-grid-community';
+import { AllCommunityModule } from 'ag-grid-community';
 import type { Position } from '../../types/position';
 import './PositionsTable.css';
 
-interface Column {
-  key: keyof Position | 'symbol';
-  label: string;
-  align?: 'right';
+const modules = [AllCommunityModule];
+
+function formatNumber(params: ValueFormatterParams<Position>) {
+  const value = params.value as number | undefined;
+  return value != null ? value.toFixed(2) : '-';
 }
 
-const COLUMNS: Column[] = [
-  { key: 'symbol', label: 'Symbol' },
-  { key: 'secType', label: 'Asset Class' },
-  { key: 'position', label: 'Position', align: 'right' },
-  { key: 'averageCost', label: 'Avg Price', align: 'right' },
-  { key: 'marketPrice', label: 'Mkt Price', align: 'right' },
-  { key: 'marketValue', label: 'Mkt Value', align: 'right' },
-  { key: 'unrealizedPNL', label: 'Unrealized PNL', align: 'right' },
+const columnDefs: ColDef<Position>[] = [
+  { field: 'symbol', headerName: 'Symbol', sortable: true, filter: true, resizable: true },
+  { field: 'secType', headerName: 'Asset Class', sortable: true, filter: true, resizable: true },
+  {
+    field: 'position',
+    headerName: 'Position',
+    sortable: true,
+    filter: true,
+    resizable: true,
+    cellClass: ['right-align'],
+  },
+  {
+    field: 'averageCost',
+    headerName: 'Avg Price',
+    sortable: true,
+    filter: true,
+    resizable: true,
+    valueFormatter: formatNumber,
+    cellClass: ['right-align'],
+  },
+  {
+    field: 'marketPrice',
+    headerName: 'Mkt Price',
+    sortable: true,
+    filter: true,
+    resizable: true,
+    valueFormatter: formatNumber,
+    cellClass: ['right-align'],
+  },
+  {
+    field: 'marketValue',
+    headerName: 'Mkt Value',
+    sortable: true,
+    filter: true,
+    resizable: true,
+    valueFormatter: formatNumber,
+    cellClass: ['right-align'],
+  },
+  {
+    field: 'unrealizedPNL',
+    headerName: 'Unrealized PNL',
+    sortable: true,
+    filter: true,
+    resizable: true,
+    valueFormatter: formatNumber,
+    cellClass: (params) => {
+      const value = params.value as number | undefined;
+      if (value == null) {
+        return ['right-align', 'pnl'];
+      }
+      return ['right-align', 'pnl', value > 0 ? 'positive-bg' : value < 0 ? 'negative-bg' : ''];
+    },
+  },
 ];
-
-function rowKey(position: Position, index: number): string | number {
-  return position.conId ?? `${position.symbol}-${position.secType}-${index}`;
-}
 
 interface PositionsTableProps {
   positions: Position[];
@@ -28,30 +72,20 @@ interface PositionsTableProps {
 
 export default function PositionsTable({ positions }: PositionsTableProps) {
   return (
-    <div className="table-wrapper">
-      <table className="positions-table">
-        <thead>
-          <tr>
-            {COLUMNS.map((col) => (
-              <th key={col.key} className={col.align === 'right' ? 'right-align' : undefined}>
-                {col.label}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {positions.map((pos, index) => (
-            <PositionRow key={rowKey(pos, index)} position={pos} />
-          ))}
-          {positions.length === 0 && (
-            <tr>
-              <td colSpan={COLUMNS.length} className="empty-state">
-                No positions found. Try fetching data.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-    </div>
+    <AgGridProvider modules={modules}>
+      <div className="table-wrapper">
+        <AgGridReact
+          rowData={positions}
+          columnDefs={columnDefs}
+          animateRows={true}
+          domLayout="autoHeight"
+          overlayNoRowsTemplate={
+            '<span class="empty-state">No positions found. Try fetching data.</span>'
+          }
+          pagination={true}
+          paginationPageSize={10}
+        />
+      </div>
+    </AgGridProvider>
   );
 }

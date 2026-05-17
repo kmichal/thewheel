@@ -1,0 +1,28 @@
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  width: 280px;
+  min-width: 280px;
+  gap: 20px;
+  height: 100%;
+}
+
+.sidebar-section {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+
+.sidebar-section h3 {
+  margin: 0;
+  padding: 16px;
+  font-size: 16px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--border);
+  background: var(--code-bg);
+}

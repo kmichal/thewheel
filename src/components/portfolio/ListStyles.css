@@ -1,0 +1,97 @@
+.symbol-list {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.symbol-list-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  transition: background-color 0.2s;
+  font-weight: 500;
+}
+
+.symbol-list-item:hover {
+  background-color: var(--code-bg);
+}
+
+.symbol-list-item.active {
+  background-color: var(--accent-bg);
+  color: var(--accent);
+  border-left: 4px solid var(--accent);
+  padding-left: 12px;
+}
+
+.list-message {
+  padding: 20px;
+  text-align: center;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.list-message.error {
+  color: #ff4b4b;
+}
+
+.watchlist-container {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+
+.add-symbol-form {
+  display: flex;
+  padding: 12px;
+  border-top: 1px solid var(--border);
+  background: var(--code-bg);
+}
+
+.add-symbol-form input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px 0 0 4px;
+  background: var(--bg);
+  color: var(--text-h);
+  font-size: 14px;
+  outline: none;
+}
+
+.add-symbol-form input:focus {
+  border-color: var(--accent);
+}
+
+.add-symbol-form button {
+  padding: 8px 16px;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 0 4px 4px 0;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.add-symbol-form button:disabled {
+  background: var(--border);
+  cursor: not-allowed;
+}
+
+.remove-btn {
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.remove-btn:hover {
+  color: #ff4b4b;
+}

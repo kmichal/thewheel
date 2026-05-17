@@ -4,6 +4,7 @@ import cors from 'cors';
 import ibkr from '@stoqey/ibkr';
 import { AccountSummary, AppEvents, APPEVENTS, Portfolios } from '@stoqey/ibkr';
 import type { EventEmitter } from 'events';
+import { getMarketData, getOptionsExpirations, getOptionsChain } from './options';
 
 const app = express();
 const port = Number(process.env.PORT) || 3001;
@@ -144,6 +145,9 @@ function fetchFreshPositions(): Promise<MappedPosition[]> {
 
   const portfoliosInstance = Portfolios.Instance;
   const ib = portfoliosInstance.ib;
+  const accountId =
+    AccountSummary.Instance.accountSummary?.AccountId ||
+    AccountSummary.Instance.AccountId;
 
   positionsFetchInFlight = new Promise<MappedPosition[]>((resolve) => {
     if (!ib) {
@@ -178,7 +182,17 @@ function fetchFreshPositions(): Promise<MappedPosition[]> {
 
     ib.on('updatePortfolio', onRefreshUpdate);
     ib.once('accountDownloadEnd', onDownloadEnd);
-    portfoliosInstance.reqAccountUpdates();
+
+    const ibApi = ib as EventEmitter & {
+      reqAccountUpdates: (subscribe: boolean, accountId: string) => void;
+    };
+
+    if (accountId) {
+      ibApi.reqAccountUpdates(false, String(accountId));
+      ibApi.reqAccountUpdates(true, String(accountId));
+    } else {
+      portfoliosInstance.reqAccountUpdates();
+    }
 
     if (positionsCache.size > 0) {
       scheduleFinish();
@@ -315,6 +329,43 @@ app.get('/api/account-summary', async (_req, res) => {
   } catch (error) {
     console.error('Error fetching account summary:', error);
     res.status(500).json({ error: 'Failed to fetch account summary from IBKR.' });
+  }
+});
+
+app.get('/api/market-data', async (req, res) => {
+  if (!isConnected) return res.status(503).json({ error: 'IBKR not connected.' });
+  const symbol = req.query.symbol as string;
+  if (!symbol) return res.status(400).json({ error: 'Symbol is required' });
+  try {
+    const price = await getMarketData(symbol);
+    res.json({ price });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/options/expirations', async (req, res) => {
+  if (!isConnected) return res.status(503).json({ error: 'IBKR not connected.' });
+  const symbol = req.query.symbol as string;
+  if (!symbol) return res.status(400).json({ error: 'Symbol is required' });
+  try {
+    const expirations = await getOptionsExpirations(symbol);
+    res.json(expirations);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/options/chain', async (req, res) => {
+  if (!isConnected) return res.status(503).json({ error: 'IBKR not connected.' });
+  const symbol = req.query.symbol as string;
+  const expiration = req.query.expiration as string;
+  if (!symbol || !expiration) return res.status(400).json({ error: 'Symbol and expiration are required' });
+  try {
+    const chain = await getOptionsChain(symbol, expiration);
+    res.json(chain);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
   }
 });
 

@@ -5,7 +5,7 @@ import type { AccountSummaryData, Position } from '../types/position';
  * Connects via the Express backend; IBKR_HOST / IBKR_PORT live in server/.env.
  */
 
-const API_BASE = import.meta.env.VITE_API_BASE || '/api';
+const API_BASE = '/api';
 
 interface ApiErrorBody {
   error?: string;
@@ -41,8 +41,7 @@ async function apiFetch<T>(path: string): Promise<T> {
     });
   } catch {
     throw new Error(
-      'Cannot reach the IBKR API server. Run `npm run server` in a separate terminal (port 3001), keep `npm run dev` running, then refresh. ' +
-        'If the error persists, set VITE_API_BASE=http://127.0.0.1:3001/api in .env.development.'
+      'Cannot reach the IBKR API server. Ensure `npm run server` is running in a separate terminal.'
     );
   }
   if (!res.ok) {
@@ -107,6 +106,30 @@ function normalizePosition(row: RawPositionRow): Position {
     accountName: row.accountName,
     conId: row.conId,
   };
+}
+
+export async function fetchMarketData(symbol: string): Promise<number> {
+  const data = await apiFetch<{ price: number }>(`/market-data?symbol=${encodeURIComponent(symbol)}`);
+  return data.price;
+}
+
+export async function fetchOptionsExpirations(symbol: string): Promise<string[]> {
+  return apiFetch<string[]>(`/options/expirations?symbol=${encodeURIComponent(symbol)}`);
+}
+
+export interface OptionContract {
+  conId: number;
+  symbol: string;
+  right: 'C' | 'P';
+  strike: number;
+  expiration: string;
+  bid?: number;
+  ask?: number;
+  delta?: number;
+}
+
+export async function fetchOptionsChain(symbol: string, expiration: string): Promise<OptionContract[]> {
+  return apiFetch<OptionContract[]>(`/options/chain?symbol=${encodeURIComponent(symbol)}&expiration=${encodeURIComponent(expiration)}`);
 }
 
 /** @deprecated Use `Portfolios.Instance.getPortfolios()` instead */

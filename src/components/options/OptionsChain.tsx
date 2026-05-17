@@ -1,0 +1,110 @@
+import { useState } from 'react';
+import { AgGridProvider, AgGridReact } from 'ag-grid-react';
+import { AllCommunityModule, type ColDef } from 'ag-grid-community';
+import type { OptionContract } from '../../api/ibkr';
+import './OptionsChain.css';
+
+const modules = [AllCommunityModule];
+
+interface OptionsChainProps {
+  expirations: string[];
+  selectedExpiration: string | null;
+  onSelectExpiration: (exp: string) => void;
+  chain: OptionContract[];
+  loading: boolean;
+}
+
+export default function OptionsChain({ 
+  expirations, 
+  selectedExpiration, 
+  onSelectExpiration, 
+  chain, 
+  loading 
+}: OptionsChainProps) {
+  const [activeTab, setActiveTab] = useState<'C' | 'P'>('C');
+
+  // Filter chain by call/put
+  const rowData = chain.filter(c => c.right === activeTab);
+
+  const colDefs: ColDef<OptionContract>[] = [
+    { field: 'expiration', headerName: 'Expiration', width: 120 },
+    { 
+      field: 'expiration', 
+      headerName: 'Days to expiration',
+      width: 150,
+      valueGetter: (params) => {
+        if (!params.data) return '';
+        const exp = params.data.expiration; // e.g. "20260320"
+        if (exp.length === 8) {
+          const year = parseInt(exp.substring(0, 4));
+          const month = parseInt(exp.substring(4, 6)) - 1;
+          const day = parseInt(exp.substring(6, 8));
+          const expDate = new Date(year, month, day);
+          const today = new Date();
+          const diffTime = Math.abs(expDate.getTime() - today.getTime());
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          return diffDays;
+        }
+        return '';
+      }
+    },
+    { field: 'strike', headerName: 'Strike', width: 100, type: 'numericColumn' },
+    { field: 'bid', headerName: 'Bid', width: 100, type: 'numericColumn' },
+    { field: 'ask', headerName: 'Ask', width: 100, type: 'numericColumn' },
+    { field: 'delta', headerName: 'Delta', width: 100, type: 'numericColumn' },
+  ];
+
+  return (
+    <div className="options-chain-container">
+      <div className="chain-controls">
+        <div className="expiration-selector">
+          <label>Expirations</label>
+          <select 
+            value={selectedExpiration || ''} 
+            onChange={(e) => onSelectExpiration(e.target.value)}
+            disabled={expirations.length === 0}
+          >
+            {expirations.length === 0 && <option value="">No expirations</option>}
+            {expirations.map(exp => (
+              <option key={exp} value={exp}>
+                {exp.length === 8 ? `${exp.substring(4,6)}/${exp.substring(6,8)}/${exp.substring(0,4)}` : exp}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="chain-tabs">
+        <button 
+          className={`chain-tab ${activeTab === 'C' ? 'active' : ''}`}
+          onClick={() => setActiveTab('C')}
+        >
+          Calls
+        </button>
+        <button 
+          className={`chain-tab ${activeTab === 'P' ? 'active' : ''}`}
+          onClick={() => setActiveTab('P')}
+        >
+          Puts
+        </button>
+      </div>
+
+      <div className="chain-grid-wrapper">
+        {loading ? (
+          <div className="chain-loading">Loading chain...</div>
+        ) : (
+          <AgGridProvider modules={modules}>
+            <div style={{ height: '100%', width: '100%' }}>
+              <AgGridReact
+                rowData={rowData}
+                columnDefs={colDefs}
+                rowSelection={{ mode: 'singleRow' }}
+                domLayout="normal"
+              />
+            </div>
+          </AgGridProvider>
+        )}
+      </div>
+    </div>
+  );
+}
