@@ -336,10 +336,13 @@ app.get('/api/market-data', async (req, res) => {
   if (!isConnected) return res.status(503).json({ error: 'IBKR not connected.' });
   const symbol = req.query.symbol as string;
   if (!symbol) return res.status(400).json({ error: 'Symbol is required' });
+  console.log(`[API] GET /api/market-data?symbol=${symbol}`);
   try {
     const price = await getMarketData(symbol);
+    console.log(`[API] Returning price=${price} for ${symbol}`);
     res.json({ price });
   } catch (err: any) {
+    console.error(`[API] Error fetching market data for ${symbol}:`, err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -348,10 +351,13 @@ app.get('/api/options/expirations', async (req, res) => {
   if (!isConnected) return res.status(503).json({ error: 'IBKR not connected.' });
   const symbol = req.query.symbol as string;
   if (!symbol) return res.status(400).json({ error: 'Symbol is required' });
+  console.log(`[API] GET /api/options/expirations?symbol=${symbol}`);
   try {
     const expirations = await getOptionsExpirations(symbol);
+    console.log(`[API] Returning ${expirations.length} expirations for ${symbol}`);
     res.json(expirations);
   } catch (err: any) {
+    console.error(`[API] Error fetching expirations for ${symbol}:`, err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -361,10 +367,13 @@ app.get('/api/options/chain', async (req, res) => {
   const symbol = req.query.symbol as string;
   const expiration = req.query.expiration as string;
   if (!symbol || !expiration) return res.status(400).json({ error: 'Symbol and expiration are required' });
+  console.log(`[API] GET /api/options/chain?symbol=${symbol}&expiration=${expiration}`);
   try {
     const chain = await getOptionsChain(symbol, expiration);
+    console.log(`[API] Returning ${chain.length} contracts for ${symbol} ${expiration}`);
     res.json(chain);
   } catch (err: any) {
+    console.error(`[API] Error fetching chain for ${symbol} ${expiration}:`, err.message);
     res.status(500).json({ error: err.message });
   }
 });

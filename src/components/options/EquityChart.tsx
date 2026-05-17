@@ -12,9 +12,8 @@ interface EquityChartProps {
 export default function EquityChart({ marketPrice, averageCost }: EquityChartProps) {
   
   const options = useMemo<any>(() => {
-    const data = [];
-    if (averageCost) data.push({ category: 'Cost', value: averageCost });
-    else data.push({ category: 'Cost', value: marketPrice || 0 });
+    const barValue = averageCost ?? 0;
+    const data = [{ category: 'Cost', value: barValue }];
     
     const crossLines = marketPrice ? [
       {
@@ -26,6 +25,10 @@ export default function EquityChart({ marketPrice, averageCost }: EquityChartPro
       }
     ] : [];
 
+    const yMin = Math.min(barValue, marketPrice ?? barValue);
+    const yMax = Math.max(barValue, marketPrice ?? barValue);
+    const padding = (yMax - yMin) * 0.15 || yMax * 0.15 || 1;
+
     return {
       data,
       series: [
@@ -33,8 +36,8 @@ export default function EquityChart({ marketPrice, averageCost }: EquityChartPro
           type: 'bar',
           xKey: 'category',
           yKey: 'value',
-          fill: '#ff9933',
-          stroke: '#cc7a29',
+          fill: averageCost ? '#ff9933' : '#666',
+          stroke: averageCost ? '#cc7a29' : '#444',
           cornerRadius: 4,
         },
       ],
@@ -46,6 +49,8 @@ export default function EquityChart({ marketPrice, averageCost }: EquityChartPro
         y: {
           type: 'number',
           position: 'left',
+          min: Math.max(0, yMin - padding),
+          max: yMax + padding,
           crossLines,
           label: {
             formatter: (params: any) => `$${params.value}`,
