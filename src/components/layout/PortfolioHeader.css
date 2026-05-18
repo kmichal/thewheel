@@ -1,5 +1,4 @@
 .header {
-  margin-bottom: 30px;
   text-align: left;
 }
 
@@ -7,7 +6,9 @@
   font-size: 42px;
   font-weight: 700;
   margin: 0 0 8px 0;
-  background: linear-gradient(135deg, #c084fc, #818cf8);
+  line-height: 1.35;
+  padding: 4px 0;
+  background: linear-gradient(135deg, #1c409b, #3b6fd4);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   letter-spacing: -1px;
