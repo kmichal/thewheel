@@ -4,7 +4,7 @@ import cors from 'cors';
 import ibkr from '@stoqey/ibkr';
 import { AccountSummary, AppEvents, APPEVENTS, Portfolios } from '@stoqey/ibkr';
 import type { EventEmitter } from 'events';
-import { getMarketData, getOptionsExpirations, getOptionsChain } from './options';
+import { getMarketData, getOptionsExpirations, getOptionsChain } from './tradier';
 
 const app = express();
 const port = Number(process.env.PORT) || 3001;
@@ -333,7 +333,6 @@ app.get('/api/account-summary', async (_req, res) => {
 });
 
 app.get('/api/market-data', async (req, res) => {
-  if (!isConnected) return res.status(503).json({ error: 'IBKR not connected.' });
   const symbol = req.query.symbol as string;
   if (!symbol) return res.status(400).json({ error: 'Symbol is required' });
   console.log(`[API] GET /api/market-data?symbol=${symbol}`);
@@ -348,7 +347,6 @@ app.get('/api/market-data', async (req, res) => {
 });
 
 app.get('/api/options/expirations', async (req, res) => {
-  if (!isConnected) return res.status(503).json({ error: 'IBKR not connected.' });
   const symbol = req.query.symbol as string;
   if (!symbol) return res.status(400).json({ error: 'Symbol is required' });
   console.log(`[API] GET /api/options/expirations?symbol=${symbol}`);
@@ -363,7 +361,6 @@ app.get('/api/options/expirations', async (req, res) => {
 });
 
 app.get('/api/options/chain', async (req, res) => {
-  if (!isConnected) return res.status(503).json({ error: 'IBKR not connected.' });
   const symbol = req.query.symbol as string;
   const expiration = req.query.expiration as string;
   if (!symbol || !expiration) return res.status(400).json({ error: 'Symbol and expiration are required' });

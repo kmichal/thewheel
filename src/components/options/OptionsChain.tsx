@@ -31,7 +31,7 @@ export default function OptionsChain({
     { 
       field: 'expiration', 
       headerName: 'Days to expiration',
-      width: 150,
+      width: 200,
       valueGetter: (params) => {
         if (!params.data) return '';
         const exp = params.data.expiration; // e.g. "20260320"
@@ -53,6 +53,8 @@ export default function OptionsChain({
     { field: 'bid', headerName: 'Bid', width: 100, type: 'numericColumn' },
     { field: 'ask', headerName: 'Ask', width: 100, type: 'numericColumn' },
     { field: 'delta', headerName: 'Delta', width: 100, type: 'numericColumn' },
+    { field: 'volume', headerName: 'Volume', width: 100, type: 'numericColumn' },
+    { field: 'openInterest', headerName: 'Open Interest', width: 130, type: 'numericColumn' },
   ];
 
   return (

@@ -126,6 +126,8 @@ export interface OptionContract {
   bid?: number;
   ask?: number;
   delta?: number;
+  volume?: number;
+  openInterest?: number;
 }
 
 export async function fetchOptionsChain(symbol: string, expiration: string): Promise<OptionContract[]> {
