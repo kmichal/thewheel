@@ -21,10 +21,16 @@ export interface HorizontalLineChartProps {
   lines: HorizontalLine[];
   /** Called when a line's value changes via drag */
   onLineChange?: (id: string, newValue: number) => void;
-  /** Y-axis minimum value */
+  /** Called when the visible y range changes via scroll */
+  onRangeChange?: (yMin: number, yMax: number) => void;
+  /** Y-axis minimum value (initial) */
   yMin?: number;
-  /** Y-axis maximum value */
+  /** Y-axis maximum value (initial) */
   yMax?: number;
+  /** Minimum allowed span between yMin and yMax when zooming in */
+  yMinSpan?: number;
+  /** How much each scroll tick expands/contracts the range, as a fraction of current span (default 0.1) */
+  zoomSensitivity?: number;
   /** Number of y-axis tick marks */
   yTickCount?: number;
   /** Chart width in px */
@@ -37,7 +43,7 @@ export interface HorizontalLineChartProps {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const MARGIN = { top: 24, right: 24, bottom: 40, left: 56 };
+const MARGIN = { top: 24, right: 64, bottom: 40, left: 56 };
 
 const DEFAULT_LINE_STYLE: Required<LineStyle> = {
   color: "#3b82f6",
@@ -67,8 +73,11 @@ function niceTicks(min: number, max: number, count: number): number[] {
 export const HorizontalLineChart: React.FC<HorizontalLineChartProps> = ({
   lines,
   onLineChange,
-  yMin = 0,
-  yMax = 100,
+  onRangeChange,
+  yMin: yMinProp = 0,
+  yMax: yMaxProp = 100,
+  yMinSpan = 1,
+  zoomSensitivity = 0.1,
   yTickCount = 6,
   width = 600,
   height = 400,
@@ -77,6 +86,10 @@ export const HorizontalLineChart: React.FC<HorizontalLineChartProps> = ({
   const svgRef = useRef<SVGSVGElement>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+
+  // Internal range state, seeded from props
+  const [yMin, setYMin] = useState(yMinProp);
+  const [yMax, setYMax] = useState(yMaxProp);
 
   // Inner drawing area dimensions
   const innerWidth = width - MARGIN.left - MARGIN.right;
@@ -92,6 +105,25 @@ export const HorizontalLineChart: React.FC<HorizontalLineChartProps> = ({
   const toDataValue = useCallback(
     (svgY: number) => lerp(svgY, 0, innerHeight, yMax, yMin),
     [yMin, yMax, innerHeight]
+  );
+
+  // ── Scroll to zoom ─────────────────────────────────────────────────────────
+
+  const handleWheel = useCallback(
+    (e: React.WheelEvent) => {
+      e.preventDefault();
+      const span = yMax - yMin;
+      // scrolling up (deltaY < 0) → expand range; scrolling down → shrink range
+      const delta = (e.deltaY > 0 ? -1 : 1) * span * zoomSensitivity;
+      const newSpan = Math.max(yMinSpan, span + delta * 2);
+      const mid = (yMin + yMax) / 2;
+      const nextMin = +(mid - newSpan / 2).toPrecision(8);
+      const nextMax = +(mid + newSpan / 2).toPrecision(8);
+      setYMin(nextMin);
+      setYMax(nextMax);
+      onRangeChange?.(nextMin, nextMax);
+    },
+    [yMin, yMax, yMinSpan, zoomSensitivity, onRangeChange]
   );
 
   const ticks = niceTicks(yMin, yMax, yTickCount);
@@ -152,6 +184,7 @@ export const HorizontalLineChart: React.FC<HorizontalLineChartProps> = ({
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerLeave={handlePointerUp}
+        onWheel={handleWheel}
       >
         <defs>
           {/* Subtle grid line pattern */}
