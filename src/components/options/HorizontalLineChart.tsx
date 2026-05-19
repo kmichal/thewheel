@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useRef, useState, useEffect } from "react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -91,6 +91,12 @@ export const HorizontalLineChart: React.FC<HorizontalLineChartProps> = ({
   const [yMin, setYMin] = useState(yMinProp);
   const [yMax, setYMax] = useState(yMaxProp);
 
+  // Sync internal state when prop range changes (new equity selected)
+  useEffect(() => {
+    setYMin(yMinProp);
+    setYMax(yMaxProp);
+  }, [yMinProp, yMaxProp]);
+
   // Inner drawing area dimensions
   const innerWidth = width - MARGIN.left - MARGIN.right;
   const innerHeight = height - MARGIN.top - MARGIN.bottom;
@@ -108,23 +114,37 @@ export const HorizontalLineChart: React.FC<HorizontalLineChartProps> = ({
   );
 
   // ── Scroll to zoom ─────────────────────────────────────────────────────────
+  // Must use a manual listener with { passive: false } — React's synthetic
+  // onWheel is always passive in modern browsers, so preventDefault() inside it
+  // is silently ignored and the page scrolls anyway.
 
-  const handleWheel = useCallback(
-    (e: React.WheelEvent) => {
+  const yMinRef = useRef(yMin);
+  const yMaxRef = useRef(yMax);
+  yMinRef.current = yMin;
+  yMaxRef.current = yMax;
+
+  useEffect(() => {
+    const el = svgRef.current;
+    if (!el) return;
+
+    const onWheel = (e: WheelEvent) => {
       e.preventDefault();
-      const span = yMax - yMin;
-      // scrolling up (deltaY < 0) → expand range; scrolling down → shrink range
+      const curMin = yMinRef.current;
+      const curMax = yMaxRef.current;
+      const span = curMax - curMin;
       const delta = (e.deltaY > 0 ? -1 : 1) * span * zoomSensitivity;
       const newSpan = Math.max(yMinSpan, span + delta * 2);
-      const mid = (yMin + yMax) / 2;
+      const mid = (curMin + curMax) / 2;
       const nextMin = +(mid - newSpan / 2).toPrecision(8);
       const nextMax = +(mid + newSpan / 2).toPrecision(8);
       setYMin(nextMin);
       setYMax(nextMax);
       onRangeChange?.(nextMin, nextMax);
-    },
-    [yMin, yMax, yMinSpan, zoomSensitivity, onRangeChange]
-  );
+    };
+
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [yMinSpan, zoomSensitivity, onRangeChange]);
 
   const ticks = niceTicks(yMin, yMax, yTickCount);
 
@@ -184,7 +204,6 @@ export const HorizontalLineChart: React.FC<HorizontalLineChartProps> = ({
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerLeave={handlePointerUp}
-        onWheel={handleWheel}
       >
         <defs>
           {/* Subtle grid line pattern */}

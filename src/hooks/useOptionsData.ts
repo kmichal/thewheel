@@ -26,6 +26,7 @@ export function useOptionsData(symbol: string | null) {
     const loadData = async () => {
       setLoadingExpirations(true);
       setError(null);
+      setMarketPrice(null);
       setExpirations([]);
       setSelectedExpiration(null);
       setChain([]);

@@ -97,7 +97,7 @@ export default function OptionsPanel({ selectedSymbol, positions }: OptionsPanel
                 yMin={chartBounds.yMin}
                 yMax={chartBounds.yMax}
                 yTickCount={6}
-                width={680}
+                width={300}
                 height={250}
                 title="Price levels"
               />
