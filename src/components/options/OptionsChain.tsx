@@ -12,6 +12,10 @@ interface OptionsChainProps {
   onSelectExpiration: (exp: string) => void;
   chain: OptionContract[];
   loading: boolean;
+  selectedCall: OptionContract | null;
+  selectedPut: OptionContract | null;
+  onSelectCall: (call: OptionContract | null) => void;
+  onSelectPut: (put: OptionContract | null) => void;
 }
 
 export default function OptionsChain({ 
@@ -19,7 +23,11 @@ export default function OptionsChain({
   selectedExpiration, 
   onSelectExpiration, 
   chain, 
-  loading 
+  loading,
+  selectedCall,
+  selectedPut,
+  onSelectCall,
+  onSelectPut
 }: OptionsChainProps) {
   const [activeTab, setActiveTab] = useState<'C' | 'P'>('C');
 
@@ -56,6 +64,34 @@ export default function OptionsChain({
     { field: 'volume', headerName: 'Volume', width: 100, type: 'numericColumn' },
     { field: 'openInterest', headerName: 'Open Interest', width: 130, type: 'numericColumn' },
   ];
+
+  // Custom row styling rules to highlight the selected Call or Put row
+  const rowClassRules = {
+    'selected-row-call': (params: any) => {
+      return !!(selectedCall && params.data && params.data.symbol === selectedCall.symbol);
+    },
+    'selected-row-put': (params: any) => {
+      return !!(selectedPut && params.data && params.data.symbol === selectedPut.symbol);
+    },
+  };
+
+  // Toggle selection on row click
+  const onRowClicked = (event: any) => {
+    const contract = event.data as OptionContract;
+    if (contract.right === 'C') {
+      if (selectedCall && selectedCall.symbol === contract.symbol) {
+        onSelectCall(null);
+      } else {
+        onSelectCall(contract);
+      }
+    } else if (contract.right === 'P') {
+      if (selectedPut && selectedPut.symbol === contract.symbol) {
+        onSelectPut(null);
+      } else {
+        onSelectPut(contract);
+      }
+    }
+  };
 
   return (
     <div className="options-chain-container">
@@ -97,12 +133,13 @@ export default function OptionsChain({
           <div className="chain-loading">Loading chain...</div>
         ) : (
           <AgGridProvider modules={modules}>
-            <div style={{ height: '100%', width: '100%' }}>
+            <div style={{ width: '100%' }}>
               <AgGridReact
                 rowData={rowData}
                 columnDefs={colDefs}
-                rowSelection={{ mode: 'singleRow' }}
-                domLayout="normal"
+                domLayout="autoHeight"
+                rowClassRules={rowClassRules}
+                onRowClicked={onRowClicked}
               />
             </div>
           </AgGridProvider>
